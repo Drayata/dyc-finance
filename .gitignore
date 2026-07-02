@@ -1,0 +1,45 @@
+# MarketPulse AI
+
+## Dependencies
+.env
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+## Node
+node_modules/
+.next/
+out/
+.turbo/
+
+## IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+## Docker
+postgres_data/
+redis_data/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Logs
+*.log
+logs/
+
+## Model artifacts
+*.pkl
+*.joblib
+*.h5
+*.pt
+!backend/app/analytics/models/.gitkeep
