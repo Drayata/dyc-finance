@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useState } from 'react';
+import { UserPreferencesProvider } from '@/context/UserPreferences';
 
 function MobileHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -123,12 +124,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
-      <Sidebar />
-      <MobileHeader />
-      <div className="md:ml-[240px]">
-        {children}
+    <UserPreferencesProvider>
+      <div className="min-h-screen bg-[var(--bg-primary)]">
+        <Sidebar />
+        <MobileHeader />
+        <div className="md:ml-[240px]">
+          {children}
+        </div>
       </div>
-    </div>
+    </UserPreferencesProvider>
   );
 }

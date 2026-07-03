@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useUserPreferences } from '@/context/UserPreferences';
 
 export default function SettingsPage() {
-  const [theme, setTheme] = useState('dark');
-  const [viewMode, setViewMode] = useState('advanced');
+  const { theme, setTheme, viewMode, setViewMode } = useUserPreferences();
   const [emailNotifs, setEmailNotifs] = useState(true);
 
   return (
@@ -24,7 +24,7 @@ export default function SettingsPage() {
               </div>
               <select 
                 value={theme} 
-                onChange={(e) => setTheme(e.target.value)}
+                onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
                 className="px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-accent)]"
               >
                 <option value="dark">Dark</option>

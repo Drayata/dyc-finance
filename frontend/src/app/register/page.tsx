@@ -35,11 +35,7 @@ export default function RegisterPage() {
     try {
       await auth.register({ username, email, password });
       
-      // Auto login after registration
-      const data = new URLSearchParams();
-      data.append('username', email);
-      data.append('password', password);
-      const loginRes = await auth.login(data.toString());
+      const loginRes: any = await auth.login({ email, password });
       
       localStorage.setItem('marketpulse_token', loginRes.access_token);
       router.push('/dashboard');

@@ -18,13 +18,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // In a real implementation with our FastAPI backend, 
-      // this would use OAuth2PasswordRequestForm format (username/password)
-      const data = new URLSearchParams();
-      data.append('username', email);
-      data.append('password', password);
-
-      const response = await auth.login(data.toString());
+      const response: any = await auth.login({ email, password });
       
       // Store token (in a real app, prefer HttpOnly cookies via Next.js API route)
       localStorage.setItem('marketpulse_token', response.access_token);

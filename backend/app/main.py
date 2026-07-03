@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.database import init_db
-from app.api import auth, markets, news, signals, watchlists, alerts
+from app.api import auth, markets, news, signals, watchlists, alerts, backtests
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -95,6 +95,24 @@ app.include_router(news.router)
 app.include_router(signals.router)
 app.include_router(watchlists.router)
 app.include_router(alerts.router)
+app.include_router(backtests.router)
+
+
+# --- WebSockets ---
+from fastapi import WebSocket, WebSocketDisconnect
+import asyncio
+
+@app.websocket("/ws/prices")
+async def websocket_prices(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            # In a real app, this would subscribe to a Redis pub/sub channel
+            # For MVP, we just send a mock heartbeat
+            await websocket.send_json({"type": "heartbeat", "timestamp": datetime.now(timezone.utc).isoformat()})
+            await asyncio.sleep(5)
+    except WebSocketDisconnect:
+        logger.info("Client disconnected from price stream")
 
 
 # --- Health Check ---

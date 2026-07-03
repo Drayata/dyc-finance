@@ -3,17 +3,26 @@ MarketPulse AI — Technical Indicator Calculator
 Computes RSI, MACD, Bollinger Bands, ATR, ADX, moving averages, support/resistance.
 Uses only numpy/pandas — no LLM dependency.
 """
-import numpy as np
+import math
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
 
+def _mean(values: List[float]) -> float:
+    if not values:
+        return 0.0
+    return sum(values) / len(values)
+
+def _std(values: List[float], mean_val: float) -> float:
+    if not values:
+        return 0.0
+    variance = sum((x - mean_val) ** 2 for x in values) / len(values)
+    return math.sqrt(variance)
 
 def compute_sma(prices: List[float], period: int) -> Optional[float]:
     """Simple Moving Average."""
     if len(prices) < period:
         return None
-    return float(np.mean(prices[-period:]))
-
+    return float(_mean(prices[-period:]))
 
 def compute_ema(prices: List[float], period: int) -> Optional[float]:
     """Exponential Moving Average."""
@@ -25,16 +34,20 @@ def compute_ema(prices: List[float], period: int) -> Optional[float]:
         ema = (price - ema) * multiplier + ema
     return float(ema)
 
-
 def compute_rsi(prices: List[float], period: int = 14) -> Optional[float]:
     """Relative Strength Index (0-100)."""
     if len(prices) < period + 1:
         return None
-    deltas = np.diff(prices[-(period + 1):])
-    gains = np.where(deltas > 0, deltas, 0)
-    losses = np.where(deltas < 0, -deltas, 0)
-    avg_gain = np.mean(gains)
-    avg_loss = np.mean(losses)
+    
+    recent_prices = prices[-(period + 1):]
+    deltas = [recent_prices[i+1] - recent_prices[i] for i in range(period)]
+    
+    gains = [d for d in deltas if d > 0]
+    losses = [-d for d in deltas if d < 0]
+    
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+    
     if avg_loss == 0:
         return 100.0
     rs = avg_gain / avg_loss
@@ -78,8 +91,8 @@ def compute_bollinger_bands(prices: List[float], period: int = 20, std_dev: floa
     if len(prices) < period:
         return {"upper": None, "middle": None, "lower": None}
     window = prices[-period:]
-    middle = float(np.mean(window))
-    std = float(np.std(window))
+    middle = float(_mean(window))
+    std = float(_std(window, middle))
     return {
         "upper": round(middle + std_dev * std, 6),
         "middle": round(middle, 6),
@@ -99,7 +112,7 @@ def compute_atr(highs: List[float], lows: List[float], closes: List[float], peri
             abs(lows[i] - closes[i - 1])
         )
         true_ranges.append(tr)
-    return float(np.mean(true_ranges[-period:]))
+    return float(_mean(true_ranges[-period:]))
 
 
 def compute_adx(highs: List[float], lows: List[float], closes: List[float], period: int = 14) -> Dict[str, Optional[float]]:
@@ -135,12 +148,12 @@ def compute_adx(highs: List[float], lows: List[float], closes: List[float], peri
     if len(tr_list) < period:
         return {"adx": None, "plus_di": None, "minus_di": None}
 
-    atr = np.mean(tr_list[-period:])
+    atr = _mean(tr_list[-period:])
     if atr == 0:
         return {"adx": 0, "plus_di": 0, "minus_di": 0}
 
-    plus_di = (np.mean(plus_dm_list[-period:]) / atr) * 100
-    minus_di = (np.mean(minus_dm_list[-period:]) / atr) * 100
+    plus_di = (_mean(plus_dm_list[-period:]) / atr) * 100
+    minus_di = (_mean(minus_dm_list[-period:]) / atr) * 100
 
     dx = abs(plus_di - minus_di) / (plus_di + minus_di) * 100 if (plus_di + minus_di) > 0 else 0
     adx = dx  # Simplified; full ADX uses smoothed DX

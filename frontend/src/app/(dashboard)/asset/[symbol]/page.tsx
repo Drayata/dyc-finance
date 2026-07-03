@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { markets } from '@/lib/api';
+import CandlestickChart from '@/components/charts/CandlestickChart';
+import { useUserPreferences } from '@/context/UserPreferences';
 
 function SignalBadge({ direction }: { direction: string }) {
   const config: Record<string, { label: string; icon: string; class: string }> = {
@@ -29,7 +31,9 @@ function ScoreBar({ value, max = 100, color = 'var(--text-accent)' }: { value: n
 export default function AssetDetailPage() {
   const params = useParams();
   const symbol = params.symbol as string;
+  const { viewMode } = useUserPreferences();
   const [data, setData] = useState<any>(null);
+  const [candles, setCandles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'technical' | 'news' | 'signal'>('overview');
@@ -38,8 +42,12 @@ export default function AssetDetailPage() {
     async function fetchAsset() {
       try {
         setLoading(true);
-        const result = await markets.getAsset(symbol);
+        const [result, candlesResult] = await Promise.all([
+          markets.getAsset(symbol),
+          markets.getCandles(symbol, '1d', 100).catch(() => [])
+        ]);
         setData(result);
+        setCandles((candlesResult as any[]) || []);
         setError(null);
       } catch (err: any) {
         setError(err.message || 'Failed to load asset data');
@@ -143,9 +151,21 @@ export default function AssetDetailPage() {
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Price Data */}
-          <div className="card">
+        <div className="space-y-6">
+          {/* Chart Section */}
+          <div className="card h-[400px]">
+            {candles.length > 0 ? (
+              <CandlestickChart data={candles} height={360} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
+                No chart data available
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Price Data */}
+            <div className="card">
             <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Price Data</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><span className="text-[var(--text-muted)]">Open</span><div className="mono">{price?.open_24h ? `$${Number(price.open_24h).toLocaleString()}` : '—'}</div></div>
@@ -197,21 +217,38 @@ export default function AssetDetailPage() {
             </div>
           )}
 
-          {/* Fundamentals */}
-          {fundamentals && (
-            <div className="card">
-              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Fundamentals</h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-[var(--text-muted)]">P/E Ratio</span><div className="mono">{fundamentals.pe_ratio?.toFixed(1)}</div></div>
-                <div><span className="text-[var(--text-muted)]">P/B Ratio</span><div className="mono">{fundamentals.pb_ratio?.toFixed(1)}</div></div>
-                <div><span className="text-[var(--text-muted)]">ROE</span><div className="mono">{fundamentals.roe?.toFixed(1)}%</div></div>
-                <div><span className="text-[var(--text-muted)]">Profit Margin</span><div className="mono">{fundamentals.profit_margin?.toFixed(1)}%</div></div>
-                <div><span className="text-[var(--text-muted)]">Revenue Growth</span><div className="mono">{fundamentals.revenue_growth_yoy?.toFixed(1)}%</div></div>
-                <div><span className="text-[var(--text-muted)]">Dividend Yield</span><div className="mono">{fundamentals.dividend_yield?.toFixed(2)}%</div></div>
+
+            {/* Fundamentals (Advanced Only) */}
+            {viewMode === 'advanced' && fundamentals && (
+              <div className="card">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Fundamentals</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-[var(--text-muted)]">P/E Ratio</span><div className="mono">{fundamentals.pe_ratio?.toFixed(2) || '—'}</div></div>
+                  <div><span className="text-[var(--text-muted)]">P/B Ratio</span><div className="mono">{fundamentals.pb_ratio?.toFixed(2) || '—'}</div></div>
+                  <div><span className="text-[var(--text-muted)]">Div Yield</span><div className="mono">{(fundamentals.dividend_yield * 100).toFixed(2)}%</div></div>
+                  <div><span className="text-[var(--text-muted)]">EPS</span><div className="mono">${fundamentals.eps?.toFixed(2) || '—'}</div></div>
+                </div>
               </div>
-              <div className="text-xs text-[var(--text-muted)] mt-3">Provider: {fundamentals.provider} • {fundamentals.data_freshness || 'demo'}</div>
-            </div>
-          )}
+            )}
+            
+            {/* Simple Mode Info */}
+            {viewMode === 'simple' && (
+              <div className="card bg-[var(--bg-secondary)] border border-[var(--border-primary)]">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">Market Pulse AI Analysis</h3>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Based on current market conditions, {asset.symbol} is showing a {signal?.direction.replace('_', ' ')} trend. 
+                  This signal is generated using a combination of technical indicators and sentiment analysis.
+                </p>
+                <button onClick={() => window.location.href='/settings'} className="mt-3 text-xs text-[var(--text-accent)] hover:underline bg-transparent border-none cursor-pointer p-0">
+                  Enable Advanced Mode for more details
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+
 
           {/* On-Chain (Crypto only) */}
           {onchain && (
@@ -228,13 +265,22 @@ export default function AssetDetailPage() {
               <div className="text-xs text-[var(--text-muted)] mt-3">Provider: {onchain.provider} • {onchain.data_freshness || 'demo'}</div>
             </div>
           )}
-        </div>
-      )}
+
 
       {/* Technical Tab */}
-      {activeTab === 'technical' && indicators && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card">
+      {activeTab === 'technical' && (
+        <div className="space-y-6">
+          {viewMode === 'simple' ? (
+            <div className="card text-center p-8">
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">Advanced Technicals Hidden</h3>
+              <p className="text-[var(--text-secondary)] mb-4">Technical indicators and raw model data are hidden in Simple Mode.</p>
+              <Link href="/settings" className="px-4 py-2 rounded-lg bg-[var(--text-accent)] text-white text-sm no-underline hover:opacity-90 inline-block">
+                Enable Advanced Mode
+              </Link>
+            </div>
+          ) : indicators && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="card">
             <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Moving Averages</h3>
             <div className="space-y-2 text-sm">
               {[['SMA 20', indicators.sma_20], ['SMA 50', indicators.sma_50], ['SMA 200', indicators.sma_200], ['EMA 12', indicators.ema_12], ['EMA 26', indicators.ema_26]].map(([label, val]: any) => (
@@ -294,7 +340,10 @@ export default function AssetDetailPage() {
             </div>
           </div>
         </div>
+        )}
+        </div>
       )}
+
 
       {/* News Tab */}
       {activeTab === 'news' && (
